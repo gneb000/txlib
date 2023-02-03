@@ -2,16 +2,18 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 
 pub struct Book {
+    timestamp: u32,
     title: String,
     author: String,
     series: String,
     series_index: f32,
     pages: i32,
-    //path: String,
+    path: String
 }
 
 impl Book {
-    pub fn new(title: String, author: String, pages: i32, series_str: String) -> Book {
+    pub fn new(timestamp: u32, title: String, author: String, pages: i32,
+               series_str: String, path: String) -> Book {
         let series_tuple = if series_str.is_empty() {
             ("None".to_string(), 1.0)
         } else {
@@ -20,11 +22,13 @@ impl Book {
         };
 
         Book {
+            timestamp,
             title,
             author,
             series: series_tuple.0,
             series_index: series_tuple.1,
             pages,
+            path
         }
     }
 
@@ -55,25 +59,18 @@ pub fn load_library(lib_file_path: &str) -> Vec<Book>{
     for line in lines {
         let line = line.unwrap();
 
-        if line.is_empty() {
+        if line.is_empty() || line.starts_with('#') {
             continue;
         }
 
         library.push(Book::new(
-            (&line[..col_lens[0]]).trim().to_string(),
+            (&line[..col_lens[0]].trim()).parse().unwrap(),
             (&line[col_lens[0]..col_lens[1]]).trim().to_string(),
-            (&line[col_lens[1]..col_lens[2]].trim()).parse().unwrap(),
-            (&line[col_lens[2]..]).trim().to_string()
+            (&line[col_lens[1]..col_lens[2]].trim()).to_string(),
+            (&line[col_lens[2]..col_lens[3]].trim()).parse().unwrap(),
+            (&line[col_lens[3]..col_lens[4]].trim()).to_string(),
+            (&line[col_lens[4]..].trim()).to_string(),
         ));
-
-        // Load from calibre export
-        /*library.push(Book {
-            title: (&line[col_lens[0]..col_lens[1]]).trim().to_string(),
-            author: (&line[col_lens[1]..col_lens[2]]).trim().to_string(),
-            pages: (&line[col_lens[2]..col_lens[3]].trim()).parse().unwrap(),
-            series: (&line[col_lens[3]..col_lens[4]]).trim().to_string(),
-            series_index: (&line[col_lens[4]..].trim()).parse().unwrap(),
-        });*/
     }
     library
 }
@@ -101,25 +98,27 @@ fn get_column_sizes_from_file(line: String) -> Vec<usize> {
 // SAVE LIBRARY //
 
 /// Write library data structure to file with appropriate formatting.
-pub fn save_library(library: Vec<Book>, output_path: &str) {
+pub fn save_library(library: &Vec<Book>, output_path: &str) {
     let lib_str = library_to_string(library);
     let mut output_file = File::create(output_path).unwrap();
     write!(output_file, "{}", lib_str).expect("Unable to write library to file.");
 }
 
 /// Generate a tabulated string from library data structure.
-pub fn library_to_string(library: Vec<Book>) -> String {
+pub fn library_to_string(library: &Vec<Book>) -> String {
     let mut lib_str = String::new();
 
     let col_lens = get_column_sizes_from_library(&library);
 
     // Create and add header line
-    let col_text = [&"TITLE".to_string(), &"AUTHOR".to_string(), &"PG".to_string(), &"SERIES".to_string()];
+    let col_text = [&"DATE".to_string(), &"TITLE".to_string(), &"AUTHOR".to_string(),
+        &"PG".to_string(), &"SERIES".to_string(), &"PATH".to_string()];
     lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
 
     // Create and add a tabulated string from each book in the library
     for book in library.iter() {
-        let col_text = [&book.title, &book.author, &book.pages.to_string(), &book.series_to_string()];
+        let col_text = [&book.timestamp.to_string(), &book.title, &book.author,
+            &book.pages.to_string(), &book.series_to_string(), &book.path];
         lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
     }
     lib_str.trim_end().to_string()
@@ -149,11 +148,13 @@ fn adjust_string_len(field: &String, max_len: usize) -> String {
 }
 
 /// Get each column width from the library data structure.
-fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 4] {
+fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
     [
+        6,
         library.iter().map(|b| b.title.len()).max().unwrap(),
         library.iter().map(|b| b.author.len()).max().unwrap(),
         library.iter().map(|b| b.pages.to_string().len()).max().unwrap(),
         library.iter().map(|b| b.series_to_string().len()).max().unwrap(),
+        library.iter().map(|b| b.path.len()).max().unwrap()
     ]
 }

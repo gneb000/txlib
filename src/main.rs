@@ -6,6 +6,6 @@ fn main() {
 
     let lib = parse_lib::load_library(input_file);
 
-    // parse_lib::save_library(lib, output_file);
-    println!("{}", parse_lib::library_to_string(lib));
+    parse_lib::save_library(&lib, output_file);
+    println!("{}", parse_lib::library_to_string(&lib));
 }
