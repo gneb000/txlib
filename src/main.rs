@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 
 struct Book {
     title: String,
@@ -11,16 +11,18 @@ struct Book {
 }
 
 impl Book {
-    pub fn to_string(&self) -> String {
-        let s = if self.series == "None" {
+    pub fn series_string(&self) -> String {
+        if self.series == "None" {
             "".to_string()
         } else {
             format!("{} {}", self.series, self.series_index)
-        };
-        format!("{} <> {} <> {} <> {}", self.title, self.author, self.pages, s)
+        }
     }
 }
 
+// LOAD LIBRARY //
+
+/// Read tabulated input and return vector with respective Book data structure.
 fn load_library(lib_file_path: &str) -> Vec<Book>{
     // Read lines from text file containing the library data
     let file = File::open(lib_file_path).unwrap();
@@ -29,7 +31,7 @@ fn load_library(lib_file_path: &str) -> Vec<Book>{
 
     // Get column lengths from header line
     let header_line = lines.next().unwrap().unwrap();
-    let col_lens = get_col_lens(header_line);
+    let col_lens = get_column_sizes_from_file(header_line);
 
     // Load library based on column lengths
     let mut library = Vec::new();
@@ -51,7 +53,8 @@ fn load_library(lib_file_path: &str) -> Vec<Book>{
     library
 }
 
-fn get_col_lens(line: String) -> Vec<usize> {
+/// Get each column width from the input file.
+fn get_column_sizes_from_file(line: String) -> Vec<usize> {
     let mut col_lens = Vec::new();
     let mut pos: i32 = -1;
     let mut count = 0;
@@ -70,12 +73,72 @@ fn get_col_lens(line: String) -> Vec<usize> {
     col_lens
 }
 
-fn main() {
-    let filename = "caldb.txt";
+// SAVE LIBRARY //
 
-    let lib = load_library(filename);
+/// Write library data structure to file with appropriate formatting.
+fn save_library(library: Vec<Book>, output_path: &str) {
+    let lib_str = library_to_string(library);
+    let mut output_file = File::create(output_path).unwrap();
+    write!(output_file, "{}", lib_str).expect("Unable to write library to file.");
+}
 
-    for book in lib.iter() {
-        println!("{}", book.to_string());
+/// Generate a tabulated string from library data structure.
+fn library_to_string(library: Vec<Book>) -> String {
+    let mut lib_str = String::new();
+
+    let col_lens = get_column_sizes_from_library(&library);
+
+    // Create and add header line
+    let col_text = [&"TITLE".to_string(), &"AUTHOR".to_string(), &"PG".to_string(), &"SERIES".to_string()];
+    lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
+
+    // Create and add a tabulated string from each book in the library
+    for book in library.iter() {
+        let col_text = [&book.title, &book.author, &book.pages.to_string(), &book.series_string()];
+        lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
     }
+    lib_str.trim_end().to_string()
+}
+
+// Iterate through each book field and return its contents as a tabulated string.
+fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
+    let mut tab_str = String::new();
+    for (i, _col) in col_text.iter().enumerate() {
+        let adj_col = adjust_string_len(&col_text[i], col_lens[i]);
+        tab_str.push_str(adj_col.as_str());
+    }
+    tab_str.push('\n');
+    tab_str
+}
+
+/// Returns each book field with required spacing to tabulate the content.
+fn adjust_string_len(field: &String, max_len: usize) -> String {
+    let mut adj_str = String::from(field);
+    let mut width = adj_str.chars().collect::<Vec<char>>().len();
+    while width < max_len {
+        adj_str.push(' ');
+        width += 1;
+    }
+    adj_str.push_str("  ");
+    adj_str
+}
+
+/// Get each column width from the library data structure.
+fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 4] {
+    [
+        library.iter().map(|b| b.title.len()).max().unwrap(),
+        library.iter().map(|b| b.author.len()).max().unwrap(),
+        library.iter().map(|b| b.pages.to_string().len()).max().unwrap(),
+        library.iter().map(|b| b.series_string().len()).max().unwrap(),
+    ]
+}
+
+fn main() {
+    let input_file = "caldb.txt";
+    let output_file = "caldb_out.txt";
+
+    let lib = load_library(input_file);
+
+    //save_library(lib, output_file);
+    println!("{}", library_to_string(lib));
 }
