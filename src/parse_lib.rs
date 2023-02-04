@@ -2,12 +2,12 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 
 pub struct Book {
-    timestamp: u32,
-    title: String,
-    author: String,
-    series: String,
-    pages: i32,
-    path: String
+    pub timestamp: u32,
+    pub title: String,
+    pub author: String,
+    pub series: String,
+    pub pages: i32,
+    pub path: String
 }
 
 // LOAD LIBRARY //

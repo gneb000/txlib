@@ -5,7 +5,8 @@ use glob::glob;
 
 const CHARS_PER_PAGE: usize = 2000;
 
-fn count_epub_pages(epub_file: &str) -> usize {
+// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
+pub fn count_epub_pages(epub_file: &str) -> usize {
     let mut doc = EpubDoc::new(epub_file).unwrap();
     let mut spine = doc.spine.clone();
 
@@ -16,24 +17,10 @@ fn count_epub_pages(epub_file: &str) -> usize {
     char_count / CHARS_PER_PAGE
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let input_path = args[1].trim();
-
-    let epub_list: Vec<String>;
-    if Path::new(input_path).is_dir() {
-        let glob_pattern = input_path.to_owned() + "/**/*.epub";
-        epub_list = glob(&glob_pattern).unwrap()
-            .map(|x| x.unwrap().display().to_string())
-            .collect();
-    } else {
-        epub_list = vec!(input_path.to_string());
-    }
-
-    for item in epub_list.iter() {
-        println!(
-            "{} {}",
-            count_epub_pages(item),
-            Path::new(item).file_name().unwrap().to_string_lossy().replace(".epub", ""));
-    }
+// Returns a vector with the paths to all epub files in provided root path.
+pub fn find_epub_files(root_path: &str) -> Vec<String>{
+    let glob_pattern = root_path.to_owned() + "/**/*.epub";
+    glob(&glob_pattern).unwrap()
+        .map(|x| x.unwrap().display().to_string())
+        .collect()
 }
