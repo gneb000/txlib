@@ -1,54 +1,32 @@
 mod parse_lib;
-mod epc;
-
-use chrono::{Datelike, Utc};
+mod epub_mgmt;
 
 use crate::parse_lib::Book;
 
-// Returns timestamp with YYMMDD format.
-fn create_timestamp() -> u32{
-    let now = Utc::now();
-    let date_str = format!(
-        "{:02}{:02}{:02}",
-        now.year(),
-        now.month(),
-        now.day(),
-    );
-    (&date_str[2..]).parse().unwrap()
-}
+// Returns library data structure after joining saved DB and epub file list.
+fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
+    // Load library DB
+    let mut library = parse_lib::load_library(lib_db_path);
+    library.pop(); // TEST ONLY
 
-fn create_book(epub_path: &String) -> Book {
-    let page_count = epc::count_epub_pages(epub_path.as_str());
+    // Load epub list
+    let epub_list = epub_mgmt::find_epub_files(epub_files_path);
 
-    let path_split: Vec<&str> = epub_path.split("/").collect();
-    let binding = path_split[path_split.len() - 1].replace(".epub", "");
-    let epub_name: Vec<&str> = binding.split(" - ").collect();
-
-    Book {
-        timestamp: create_timestamp(),
-        title: epub_name[0].to_string(),
-        author: epub_name[1].to_string(),
-        series: "".to_string(),
-        pages: page_count as i32,
-        path: epub_path.to_string()
+    // Check whether new epub files are available and add to the library accordingly
+    for epub_path in epub_list.iter() {
+        if !library.iter().any(|b| &b.path == epub_path) {
+            library.push(epub_mgmt::create_book(epub_path));
+        }
     }
+    library
 }
 
 fn main() {
     let input_file = "caldb_in.txt";
     //let output_file = "caldb_out.txt";
+    let lib_path = "/path/to/epubs";
 
-    let mut lib = parse_lib::load_library(input_file);
-    lib.pop(); // TEST ONLY
-
-    let lib_path = "/home/gaorbe/storage/Almacenamiento/Main/Reading/Ebooks";
-    let epub_list = epc::find_epub_files(lib_path);
-
-    for epub_path in epub_list.iter() {
-        if !lib.iter().any(|b| &b.path == epub_path) {
-            lib.push(create_book(epub_path));
-        }
-    }
+    let lib = load_library(input_file, lib_path);
 
     // parse_lib::save_library(&lib, output_file);
     println!("{}", parse_lib::library_to_string(&lib));

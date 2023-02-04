@@ -12,7 +12,7 @@ pub struct Book {
 
 // LOAD LIBRARY //
 
-/// Read tabulated input and return vector with respective Book data structure.
+/// Reads tabulated input and returns vector with respective Book data structure.
 pub fn load_library(lib_file_path: &str) -> Vec<Book>{
     // Read lines from text file containing the library data
     let file = File::open(lib_file_path).unwrap();
@@ -45,7 +45,7 @@ pub fn load_library(lib_file_path: &str) -> Vec<Book>{
     library
 }
 
-/// Get each column width from the input file.
+/// Returns width of each column from the input file.
 fn get_column_sizes_from_file(line: String) -> Vec<usize> {
     let mut col_lens = Vec::new();
     let mut pos: i32 = -1;
@@ -74,7 +74,7 @@ pub fn save_library(library: &Vec<Book>, output_path: &str) {
     write!(output_file, "{}", lib_str).expect("Unable to write library to file.");
 }
 
-/// Generate a tabulated string from library data structure.
+/// Returns a tabulated string from library data structure.
 pub fn library_to_string(library: &Vec<Book>) -> String {
     let mut lib_str = String::new();
 
@@ -94,7 +94,7 @@ pub fn library_to_string(library: &Vec<Book>) -> String {
     lib_str.trim_end().to_string()
 }
 
-// Iterate through each book field and return its contents as a tabulated string.
+// Iterates through each book field and returns its contents as a tabulated string.
 fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
     let mut tab_str = String::new();
     for (i, _col) in col_text.iter().enumerate() {
@@ -117,7 +117,7 @@ fn adjust_string_len(field: &String, max_len: usize) -> String {
     adj_str
 }
 
-/// Get each column width from the library data structure.
+/// Return width of each column from the library data structure.
 fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
     [
         6,
