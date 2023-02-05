@@ -219,3 +219,21 @@ fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
         library.iter().map(|b| b.path.len()).max().unwrap()
     ]
 }
+
+/*
+fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
+    let mut col_lens = [6, 0, 0, 0, 0, 0];
+    library.iter()
+        .map(|b| compare_column_size(b, &mut col_lens))
+        .count();
+    col_lens
+}
+
+fn compare_column_size(b: &Book, col_lens: &mut [usize; 6]) {
+    col_lens[1] = max(col_lens[1], b.title.len());
+    col_lens[2] = max(col_lens[2], b.author.len());
+    col_lens[3] = max(col_lens[3], b.pages.to_string().len());
+    col_lens[4] = max(col_lens[4], b.series.len());
+    col_lens[5] = max(col_lens[5], b.path.len());
+}
+*/
