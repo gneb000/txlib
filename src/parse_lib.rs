@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::path::Path;
 use std::io::{BufRead, BufReader, Write};
 use chrono::{Datelike, Utc};
 use epub::doc::EpubDoc;
@@ -54,7 +55,7 @@ fn count_epub_pages(mut epub_doc: EpubDoc<BufReader<File>>) -> usize {
     let mut spine = epub_doc.spine.clone();
     let mut char_count = 0;
     for res_id in spine.iter_mut() {
-        char_count += epub_doc.get_resource_str(res_id).unwrap().0.chars()
+        char_count += epub_doc.get_resource_str(res_id).unwrap_or_default().0.chars()
             .filter(|s| *s!='\n')
             .count();
     }
@@ -78,11 +79,15 @@ fn create_timestamp() -> u32{
 
 /// Returns library data structure after joining saved DB and epub file list.
 pub fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
-    // Load library DB
-    let mut library = read_library_db(lib_db_path);
-
     // Load epub list
     let epub_list = find_epub_files(epub_files_path);
+
+    // Load library DB
+    let mut library = if Path::new(lib_db_path).exists() {
+        read_library_db(lib_db_path)
+    } else {
+        Vec::new()
+    };
 
     // Check whether new epub files are available and add to the library accordingly
     for epub_path in epub_list.iter() {
