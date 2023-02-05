@@ -23,26 +23,27 @@ pub fn load_library(lib_file_path: &str) -> Vec<Book>{
     let header_line = lines.next().unwrap().unwrap();
     let col_lens = get_column_sizes_from_file(header_line);
 
-    // Load library based on column lengths
+    // Load library based on column lengths, ignoring empty or commented lines
     let mut library = Vec::new();
-    for line in lines {
-        let line = line.unwrap();
+    lines
+        .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
+        .map(|l| library.push(line_to_book(l.unwrap(), &col_lens)))
+        .count();
 
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        library.push(Book {
-            timestamp: (&line[..col_lens[0]].trim()).parse().unwrap(),
-            title: (&line[col_lens[0]..col_lens[1]]).trim().to_string(),
-            author: (&line[col_lens[1]..col_lens[2]].trim()).to_string(),
-            pages: (&line[col_lens[2]..col_lens[3]].trim()).parse().unwrap(),
-            series: (&line[col_lens[3]..col_lens[4]].trim()).to_string(),
-            path: (&line[col_lens[4]..].trim()).to_string()
-        });
-    }
     library.sort_by_key(|x| x.timestamp);
     library
+}
+
+/// Returns a Book struct from the line string and based on provided column lengths.
+fn line_to_book(line: String, col_lens: &Vec<usize>) -> Book {
+    Book {
+        timestamp: (&line[..col_lens[0]].trim()).parse().unwrap(),
+        title: (&line[col_lens[0]..col_lens[1]]).trim().to_string(),
+        author: (&line[col_lens[1]..col_lens[2]].trim()).to_string(),
+        pages: (&line[col_lens[2]..col_lens[3]].trim()).parse().unwrap(),
+        series: (&line[col_lens[3]..col_lens[4]].trim()).to_string(),
+        path: (&line[col_lens[4]..].trim()).to_string()
+    }
 }
 
 /// Returns width of each column from the input file.
@@ -86,21 +87,26 @@ pub fn library_to_string(library: &Vec<Book>) -> String {
     lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
 
     // Create and add a tabulated string from each book in the library
-    for book in library.iter() {
-        let col_text = [&book.timestamp.to_string(), &book.title, &book.author,
-            &book.pages.to_string(), &book.series.to_string(), &book.path];
-        lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
-    }
+    library.iter()
+        .map(|b| lib_str.push_str(book_to_line(b, col_lens).as_str()))
+        .count();
+
     lib_str.trim_end().to_string()
 }
 
-// Iterates through each book field and returns its contents as a tabulated string.
+/// Returns a tabulated string slice from provided Book struct.
+fn book_to_line(book: &Book, col_lens: [usize; 6]) -> String {
+    let col_text = [&book.timestamp.to_string(), &book.title, &book.author,
+        &book.pages.to_string(), &book.series.to_string(), &book.path];
+    tabulate_string(&col_text, &col_lens)
+}
+
+/// Iterates through each book field and returns its contents as a tabulated string slice.
 fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
     let mut tab_str = String::new();
-    for (i, _col) in col_text.iter().enumerate() {
-        let adj_col = adjust_string_len(&col_text[i], col_lens[i]);
-        tab_str.push_str(adj_col.as_str());
-    }
+    col_text.iter().enumerate()
+        .map(|i| tab_str.push_str(adjust_string_len(&col_text[i.0], col_lens[i.0]).as_str()))
+        .count();
     tab_str.push('\n');
     tab_str
 }

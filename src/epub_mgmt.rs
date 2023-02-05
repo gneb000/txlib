@@ -45,7 +45,9 @@ fn count_epub_pages(mut epub_doc: EpubDoc<BufReader<File>>) -> usize {
     let mut spine = epub_doc.spine.clone();
     let mut char_count = 0;
     for res_id in spine.iter_mut() {
-        char_count += epub_doc.get_resource_str(res_id).unwrap().0.chars().filter(|s| *s!='\n').count();
+        char_count += epub_doc.get_resource_str(res_id).unwrap().0.chars()
+            .filter(|s| *s!='\n')
+            .count();
     }
     char_count / CHARS_PER_PAGE
 }

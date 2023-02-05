@@ -27,6 +27,7 @@ fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
 fn main() {
     let input_file = "caldb_in.txt";
     //let output_file = "caldb_out.txt";
+
     let lib_path = "/path/to/epubs";
 
     let lib = load_library(input_file, lib_path);
