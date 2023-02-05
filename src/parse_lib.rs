@@ -1,5 +1,8 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
+use chrono::{Datelike, Utc};
+use epub::doc::EpubDoc;
+use glob::glob;
 
 pub struct Book {
     pub timestamp: u32,
@@ -10,10 +13,91 @@ pub struct Book {
     pub path: String
 }
 
+const CHARS_PER_PAGE: usize = 2000;
+
+// EPUB MANAGEMENT //
+
+// Returns a vector with the paths to all epub files in provided root path.
+pub fn find_epub_files(root_path: &str) -> Vec<String>{
+    let glob_pattern = root_path.to_owned() + "/**/*.epub";
+    glob(&glob_pattern).unwrap()
+        .map(|x| x.unwrap().display().to_string())
+        .collect()
+}
+
+// Returns Book data structure from data of the provided epub file path.
+pub fn create_book(epub_path: &str) -> Book {
+    let epub_info = get_epub_data(epub_path);
+
+    Book {
+        timestamp: epub_info.0,
+        title: epub_info.1,
+        author: epub_info.2,
+        series: "".to_string(),
+        pages: epub_info.3,
+        path: epub_path.to_string()
+    }
+}
+
+// Returns tuple with (timestamp, title, author, pages) of the provided epub file.
+fn get_epub_data(epub_file: &str) -> (u32, String, String, i32) {
+    let epub_doc = EpubDoc::new(epub_file).unwrap();
+    let timestamp = create_timestamp();
+    let title = epub_doc.mdata("title").unwrap_or("Unknown title".to_string());
+    let author = epub_doc.mdata("creator").unwrap_or("Unknown author".to_string());
+    let pages = count_epub_pages(epub_doc) as i32;
+    (timestamp, title, author, pages)
+}
+
+// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
+fn count_epub_pages(mut epub_doc: EpubDoc<BufReader<File>>) -> usize {
+    let mut spine = epub_doc.spine.clone();
+    let mut char_count = 0;
+    for res_id in spine.iter_mut() {
+        char_count += epub_doc.get_resource_str(res_id).unwrap().0.chars()
+            .filter(|s| *s!='\n')
+            .count();
+    }
+    char_count / CHARS_PER_PAGE
+}
+
+// Returns today as a timestamp with YYMMDD format.
+fn create_timestamp() -> u32{
+    let now = Utc::now();
+    let date_str = format!(
+        "{:02}{:02}{:02}",
+        now.year(),
+        now.month(),
+        now.day(),
+    );
+    (&date_str[2..]).parse().unwrap()
+}
+
+
 // LOAD LIBRARY //
 
+/// Returns library data structure after joining saved DB and epub file list.
+pub fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
+    // Load library DB
+    let mut library = read_library_db(lib_db_path);
+
+    // Load epub list
+    let epub_list = find_epub_files(epub_files_path);
+
+    // Check whether new epub files are available and add to the library accordingly
+    for epub_path in epub_list.iter() {
+        if !library.iter().any(|b| &b.path == epub_path) {
+            library.push(create_book(epub_path));
+        }
+    }
+
+    // Remove unavailable epub files from library DB
+    library.retain(|e| epub_list.contains(&e.path));
+    library
+}
+
 /// Reads tabulated input and returns vector with respective Book data structure.
-pub fn load_library(lib_file_path: &str) -> Vec<Book>{
+fn read_library_db(lib_file_path: &str) -> Vec<Book>{
     // Read lines from text file containing the library data
     let file = File::open(lib_file_path).unwrap();
     let reader = BufReader::new(file);
@@ -24,14 +108,14 @@ pub fn load_library(lib_file_path: &str) -> Vec<Book>{
     let col_lens = get_column_sizes_from_file(header_line);
 
     // Load library based on column lengths, ignoring empty or commented lines
-    let mut library = Vec::new();
+    let mut library_db = Vec::new();
     lines
         .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
-        .map(|l| library.push(line_to_book(l.unwrap(), &col_lens)))
+        .map(|l| library_db.push(line_to_book(l.unwrap(), &col_lens)))
         .count();
 
-    library.sort_by_key(|x| x.timestamp);
-    library
+    library_db.sort_by_key(|x| x.timestamp);
+    library_db
 }
 
 /// Returns a Book struct from the line string and based on provided column lengths.
@@ -65,6 +149,7 @@ fn get_column_sizes_from_file(line: String) -> Vec<usize> {
     }
     col_lens
 }
+
 
 // SAVE LIBRARY //
 
