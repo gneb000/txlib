@@ -7,7 +7,6 @@ use crate::parse_lib::Book;
 fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
     // Load library DB
     let mut library = parse_lib::load_library(lib_db_path);
-    library.pop(); // TEST ONLY
 
     // Load epub list
     let epub_list = epub_mgmt::find_epub_files(epub_files_path);
@@ -18,6 +17,10 @@ fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
             library.push(epub_mgmt::create_book(epub_path));
         }
     }
+
+    // Remove unavailable epub files from library DB
+    library.retain(|e| epub_list.contains(&e.path));
+
     library
 }
 
