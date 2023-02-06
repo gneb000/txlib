@@ -58,6 +58,6 @@ fn main() {
 
     // Load library, save to DB file and pipe to stdout
     let lib = parse_lib::load_library(lib_db_file_str, epub_dir_path.as_str());
-    parse_lib::save_library(&lib, lib_db_file_str);
-    println!("{}", parse_lib::library_to_string(&lib));
+    let lib_str = parse_lib::save_library(&lib, lib_db_file_str);
+    println!("{}", lib_str);
 }

@@ -14,7 +14,8 @@ pub struct Book {
     pub path: String
 }
 
-const CHARS_PER_PAGE: usize = 2000;
+const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
+const CHARS_PER_PAGE: usize = 2000; // Chars per page for counting pages
 
 // EPUB MANAGEMENT //
 
@@ -27,9 +28,8 @@ pub fn find_epub_files(root_path: &str) -> Vec<String>{
 }
 
 // Returns Book data structure from data of the provided epub file path.
-pub fn create_book(epub_path: &str) -> Book {
+pub fn create_book_from_epub(epub_path: &str) -> Book {
     let epub_info = get_epub_data(epub_path);
-
     Book {
         timestamp: epub_info.0,
         title: epub_info.1,
@@ -92,7 +92,7 @@ pub fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
     // Check whether new epub files are available and add to the library accordingly
     for epub_path in epub_list.iter() {
         if !library.iter().any(|b| &b.path == epub_path) {
-            library.push(create_book(epub_path));
+            library.push(create_book_from_epub(epub_path));
         }
     }
 
@@ -108,15 +108,14 @@ fn read_library_db(lib_file_path: &str) -> Vec<Book>{
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
 
-    // Get column lengths from header line
-    let header_line = lines.next().unwrap().unwrap();
-    let col_lens = get_column_sizes_from_file(header_line);
+    // Skip header line.
+    lines.next();
 
     // Load library based on column lengths, ignoring empty or commented lines
     let mut library_db = Vec::new();
     lines
         .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
-        .map(|l| library_db.push(line_to_book(l.unwrap(), &col_lens)))
+        .map(|l| library_db.push(line_to_book(l.unwrap())))
         .count();
 
     library_db.sort_by_key(|x| x.timestamp);
@@ -124,52 +123,38 @@ fn read_library_db(lib_file_path: &str) -> Vec<Book>{
 }
 
 /// Returns a Book struct from the line string and based on provided column lengths.
-fn line_to_book(line: String, col_lens: &Vec<usize>) -> Book {
-    Book {
-        timestamp: (&line[..col_lens[0]].trim()).parse().unwrap(),
-        title: (&line[col_lens[0]..col_lens[1]]).trim().to_string(),
-        author: (&line[col_lens[1]..col_lens[2]].trim()).to_string(),
-        pages: (&line[col_lens[2]..col_lens[3]].trim()).parse().unwrap(),
-        series: (&line[col_lens[3]..col_lens[4]].trim()).to_string(),
-        path: (&line[col_lens[4]..].trim()).to_string()
-    }
-}
+fn line_to_book(line: String) -> Book {
+    let fields: Vec<&str> = line
+        .split(DELIM)
+        .map(|s| s.trim())
+        .collect();
 
-/// Returns width of each column from the input file.
-fn get_column_sizes_from_file(line: String) -> Vec<usize> {
-    let mut col_lens = Vec::new();
-    let mut pos: i32 = -1;
-    let mut count = 0;
-    let mut space_start = false;
-    for c in line.chars() {
-        pos += 1;
-        if c == ' ' {
-            space_start = true;
-        } else if space_start && c != ' ' {
-            space_start = false;
-            count = count + pos as usize;
-            col_lens.push(count);
-            pos = 0;
-        }
+    Book {
+        timestamp: fields[0].parse().unwrap(),
+        title: fields[1].to_string(),
+        author: fields[2].to_string(),
+        pages: fields[3].parse().unwrap(),
+        series: fields[4].to_string(),
+        path: fields[5].to_string()
     }
-    col_lens
 }
 
 
 // SAVE LIBRARY //
 
-/// Write library data structure to file with appropriate formatting.
-pub fn save_library(library: &Vec<Book>, output_path: &str) {
+/// Write library data structure to file with appropriate formatting, returns saved string.
+pub fn save_library(library: &Vec<Book>, output_path: &str) -> String {
     let lib_str = library_to_string(library);
     let mut output_file = File::create(output_path).unwrap();
     write!(output_file, "{}", lib_str).expect("Unable to write library to file.");
+    lib_str
 }
 
 /// Returns a tabulated string from library data structure.
 pub fn library_to_string(library: &Vec<Book>) -> String {
     let mut lib_str = String::new();
 
-    let col_lens = get_column_sizes_from_library(&library);
+    let col_lens = get_max_column_sizes_from_library(&library);
 
     // Create and add header line
     let col_text = [&"DATE".to_string(), &"TITLE".to_string(), &"AUTHOR".to_string(),
@@ -209,12 +194,12 @@ fn adjust_string_len(field: &String, max_len: usize) -> String {
         adj_str.push(' ');
         width += 1;
     }
-    adj_str.push_str("  ");
+    adj_str.push_str(DELIM);
     adj_str
 }
 
-/// Return width of each column from the library data structure.
-fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
+/// Return maximum width of each column from the library data structure.
+fn get_max_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
     [
         6,
         library.iter().map(|b| b.title.len()).max().unwrap(),
@@ -224,21 +209,3 @@ fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
         library.iter().map(|b| b.path.len()).max().unwrap()
     ]
 }
-
-/*
-fn get_column_sizes_from_library(library: &Vec<Book>) -> [usize; 6] {
-    let mut col_lens = [6, 0, 0, 0, 0, 0];
-    library.iter()
-        .map(|b| compare_column_size(b, &mut col_lens))
-        .count();
-    col_lens
-}
-
-fn compare_column_size(b: &Book, col_lens: &mut [usize; 6]) {
-    col_lens[1] = max(col_lens[1], b.title.len());
-    col_lens[2] = max(col_lens[2], b.author.len());
-    col_lens[3] = max(col_lens[3], b.pages.to_string().len());
-    col_lens[4] = max(col_lens[4], b.series.len());
-    col_lens[5] = max(col_lens[5], b.path.len());
-}
-*/
