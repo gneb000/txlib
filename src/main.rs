@@ -4,8 +4,6 @@ use crate::parse_lib::SortBy;
 
 mod parse_lib;
 
-
-
 /// If config file was verified, returns (true, epub_dir_path). Else, returns (false, "").
 fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, String) {
     // Verify config directory path
