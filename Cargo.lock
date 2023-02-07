@@ -382,16 +382,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "telm"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dirs",
- "epub",
- "glob",
-]
-
-[[package]]
 name = "termcolor"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -429,6 +419,16 @@ dependencies = [
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi",
+]
+
+[[package]]
+name = "txlib"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "epub",
+ "glob",
 ]
 
 [[package]]

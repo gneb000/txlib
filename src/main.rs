@@ -14,8 +14,8 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
     // Verify config file and load epub library path
     let epub_dir_path;
     if !config_file.exists() {
-        println!("No config file found. In the config file 'telmrc' located in \
-            '$HOME/.config/telm' add the path to the root directory to search for epub files.");
+        println!("No config file found. In the config file 'txlibrc' located in \
+            '$HOME/.config/txlib' add the path to the root directory to search for epub files.");
         fs::write(config_file, "library_path=")
             .expect("Unable to create config file.");
         return (false, "".to_string())
@@ -45,8 +45,8 @@ fn backup_library_db(lib_db_file: &str) {
 
 fn main() {
     // Config file paths
-    let config_path = dirs::config_dir().unwrap().join("telm");
-    let config_file = config_path.join("telmrc");
+    let config_path = dirs::config_dir().unwrap().join("txlib");
+    let config_file = config_path.join("txlibrc");
     let lib_db_file = config_path.join("epub_db.txt");
 
     // Verify config file

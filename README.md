@@ -1,2 +1,2 @@
-# TELM
-**T**ext based **E**pub **L**ibrary **M**anager
+# TXLIB
+Text based epub library manager
