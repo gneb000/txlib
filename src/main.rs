@@ -1,8 +1,28 @@
+mod parse_lib;
+
 use std::fs;
 use std::path::Path;
+use clap::Parser;
+
 use crate::parse_lib::SortBy;
 
-mod parse_lib;
+/// txlib: text based epub library management
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// sort by: date, title, author, pages or series
+    #[arg(short, long, default_value = "date")]
+    sort: String,
+    /// reverse sorting order
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    reverse: bool,
+    /// print output without saving to DB
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    no_save: bool,
+    /// open DB file (does not run the rest of the app)
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    open_db: bool,
+}
 
 /// If config file was verified, returns (true, epub_dir_path). Else, returns (false, "").
 fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, String) {
@@ -41,11 +61,40 @@ fn backup_library_db(lib_db_file: &str) {
     }
 }
 
+/// Returns SortBy enum after parsing string sorting option.
+fn parse_sorting_option(sort_str: String) -> SortBy {
+    match sort_str.to_lowercase().as_str() {
+        "d" | "date" => SortBy::Date,
+        "t" | "title" => SortBy::Title,
+        "a" | "author" => SortBy::Author,
+        "p" | "pages" => SortBy::Pages,
+        "s" | "series" => SortBy::Series,
+        _ => SortBy::Date
+    }
+}
+
+/// Open library DB file if exists.
+fn open_db_file(lib_db_file: &Path) {
+    if lib_db_file.exists() {
+        open::that(lib_db_file).expect("Unable to open DB file.");
+    }
+}
+
 fn main() {
+    // Parse CLI input
+    let args = Args::parse();
+    let sort_by = parse_sorting_option(args.sort);
+
     // Config file paths
     let config_path = dirs::config_dir().unwrap().join("txlib");
     let config_file = config_path.join("txlibrc");
     let lib_db_file = config_path.join("epub_db.txt");
+
+    // Open DB file (if required)
+    if args.open_db {
+        open_db_file(lib_db_file.as_path());
+        return;
+    }
 
     // Verify config file
     let verified = startup_verifications(config_path.as_path(), config_file.as_path());
@@ -54,18 +103,14 @@ fn main() {
     }
     let epub_dir_path = verified.1;
 
+    // Get DB file and create a backup
     let lib_db_file_str = lib_db_file.as_path().to_str().unwrap();
     backup_library_db(lib_db_file_str);
 
-    // TODO Read from command line arguments
-    let sort_by = SortBy::Date;
-    let reverse = false;
-    let no_save = false;
-
     // Load library, save to DB file and/or pipe to stdout
     let lib = parse_lib::load_library(lib_db_file_str,
-                                      epub_dir_path.as_str(), sort_by, reverse);
-    if no_save {
+                                      epub_dir_path.as_str(), sort_by, args.reverse);
+    if args.no_save {
         println!("{}", parse_lib::library_to_string(&lib));
     } else {
         let lib_str = parse_lib::save_library(&lib, lib_db_file_str);
