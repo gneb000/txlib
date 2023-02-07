@@ -14,6 +14,14 @@ pub struct Book {
     pub path: String
 }
 
+pub enum SortBy {
+    Date,
+    Title,
+    Author,
+    Pages,
+    Series
+}
+
 const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
 const CHARS_PER_PAGE: usize = 2000; // Chars per page for counting pages
 
@@ -78,9 +86,9 @@ fn create_timestamp() -> u32{
 // LOAD LIBRARY //
 
 /// Returns library data structure after joining saved DB and epub file list.
-pub fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
+pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: SortBy, reverse: bool) -> Vec<Book> {
     // Load epub list
-    let epub_list = find_epub_files(epub_files_path);
+    let epub_list = find_epub_files(epub_path);
 
     // Load library DB
     let mut library = if Path::new(lib_db_path).exists() {
@@ -98,6 +106,8 @@ pub fn load_library(lib_db_path: &str, epub_files_path: &str) -> Vec<Book> {
 
     // Remove unavailable epub files from library DB
     library.retain(|e| epub_list.contains(&e.path));
+
+    sort_library(&mut library, sort_by, reverse);
     library
 }
 
@@ -118,7 +128,6 @@ fn read_library_db(lib_file_path: &str) -> Vec<Book>{
         .map(|l| library_db.push(line_to_book(l.unwrap())))
         .count();
 
-    library_db.sort_by_key(|x| x.timestamp);
     library_db
 }
 
@@ -136,6 +145,20 @@ fn line_to_book(line: String) -> Book {
         pages: fields[3].parse().unwrap(),
         series: fields[4].to_string(),
         path: fields[5].to_string()
+    }
+}
+
+/// Sorts library based on provided Book field.
+fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
+    match sort_by {
+        SortBy::Date => library.sort_by_key(|b| b.timestamp),
+        SortBy::Title => library.sort_by(|b1, b2| b1.title.cmp(&b2.title)),
+        SortBy::Author => library.sort_by(|b1, b2| b1.author.cmp(&b2.author)),
+        SortBy::Pages => library.sort_by_key(|b| b.pages),
+        SortBy::Series => library.sort_by(|b1, b2| b1.series.cmp(&b2.series))
+    }
+    if reverse {
+        library.reverse();
     }
 }
 

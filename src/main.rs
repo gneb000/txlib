@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::Path;
+use crate::parse_lib::SortBy;
 
 mod parse_lib;
+
+
 
 /// If config file was verified, returns (true, epub_dir_path). Else, returns (false, "").
 fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, String) {
@@ -56,8 +59,18 @@ fn main() {
     let lib_db_file_str = lib_db_file.as_path().to_str().unwrap();
     backup_library_db(lib_db_file_str);
 
-    // Load library, save to DB file and pipe to stdout
-    let lib = parse_lib::load_library(lib_db_file_str, epub_dir_path.as_str());
-    let lib_str = parse_lib::save_library(&lib, lib_db_file_str);
-    println!("{}", lib_str);
+    // TODO Read from command line arguments
+    let sort_by = SortBy::Date;
+    let reverse = false;
+    let no_save = false;
+
+    // Load library, save to DB file and/or pipe to stdout
+    let lib = parse_lib::load_library(lib_db_file_str,
+                                      epub_dir_path.as_str(), sort_by, reverse);
+    if no_save {
+        println!("{}", parse_lib::library_to_string(&lib));
+    } else {
+        let lib_str = parse_lib::save_library(&lib, lib_db_file_str);
+        println!("{}", lib_str);
+    }
 }
