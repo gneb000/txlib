@@ -107,13 +107,8 @@ fn main() {
     let lib_db_file_str = lib_db_file.as_path().to_str().unwrap();
     backup_library_db(lib_db_file_str);
 
-    // Load library, save to DB file and/or pipe to stdout
+    // Load library and write it to stdout and/or DB file
     let lib = parse_lib::load_library(lib_db_file_str,
                                       epub_dir_path.as_str(), sort_by, args.reverse);
-    if args.no_save {
-        println!("{}", parse_lib::library_to_string(&lib));
-    } else {
-        let lib_str = parse_lib::save_library(&lib, lib_db_file_str);
-        println!("{}", lib_str);
-    }
+    parse_lib::write_library(&lib, lib_db_file_str, args.no_save);
 }
