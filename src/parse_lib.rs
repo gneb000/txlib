@@ -5,26 +5,37 @@ use chrono::{Datelike, Utc};
 use epub::doc::EpubDoc;
 use glob::glob;
 
+const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
+const READ_SYMBOL: &str = "*";      // Symbol to mark book as read
+const CHARS_PER_PAGE: usize = 2000; // Chars per page for counting pages
+
 pub struct Book {
-    pub timestamp: u32,
-    pub title: String,
-    pub author: String,
-    pub series: String,
-    pub pages: u32,
-    pub path: String
+    timestamp: u32,
+    read: bool,
+    title: String,
+    author: String,
+    series: String,
+    pages: u32,
+    path: String
+}
+
+impl Book {
+    fn read_symbol(&self) -> String {
+        match self.read {
+            true  => READ_SYMBOL.to_string(),
+            false => String::from(" ")
+        }
+    }
 }
 
 pub enum SortBy {
     Date,
+    Read,
     Title,
     Author,
     Pages,
     Series
 }
-
-const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
-const CHARS_PER_PAGE: usize = 2000; // Chars per page for counting pages
-
 
 // LOAD LIBRARY //
 
@@ -47,7 +58,7 @@ pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: SortBy, reverse
     library
 }
 
-// Returns a vector with the paths to all epub files in provided root path.
+/// Returns a vector with the paths to all epub files in provided root path.
 fn find_epub_files(root_path: &str) -> Vec<String>{
     let glob_pattern = root_path.to_owned() + "/**/*.epub";
     glob(&glob_pattern).unwrap()
@@ -84,19 +95,21 @@ fn line_to_book(line: String) -> Book {
 
     Book {
         timestamp: fields[0].parse().unwrap(),
-        title: fields[1].to_string(),
-        author: fields[2].to_string(),
-        pages: fields[3].parse().unwrap(),
-        series: fields[4].to_string(),
-        path: fields[5].to_string()
+        read: !fields[1].trim().is_empty(),
+        title: fields[2].to_string(),
+        author: fields[3].to_string(),
+        pages: fields[4].parse().unwrap(),
+        series: fields[5].to_string(),
+        path: fields[6].to_string()
     }
 }
 
-// Returns Book data structure from data of the provided epub file path.
+/// Returns Book data structure from data of the provided epub file path.
 fn create_book_from_epub(epub_path: &str) -> Book {
     let mut epub_doc = EpubDoc::new(epub_path).unwrap();
     Book {
         timestamp: create_timestamp(),
+        read: false,
         title: epub_doc.mdata("title").unwrap_or("Unknown title".to_string()),
         author: epub_doc.mdata("creator").unwrap_or("Unknown author".to_string()),
         series: String::new(),
@@ -105,7 +118,7 @@ fn create_book_from_epub(epub_path: &str) -> Book {
     }
 }
 
-// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
+/// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
 fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
     let mut spine = epub_doc.spine.clone();
     let mut char_count = 0;
@@ -117,7 +130,7 @@ fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
     (char_count / CHARS_PER_PAGE) as u32
 }
 
-// Returns today as a timestamp with YYMMDD format.
+/// Returns today as a timestamp with YYMMDD format.
 fn create_timestamp() -> u32{
     let now = Utc::now();
     let date_str = format!(
@@ -133,6 +146,7 @@ fn create_timestamp() -> u32{
 fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
     match sort_by {
         SortBy::Date => library.sort_by_key(|b| b.timestamp),
+        SortBy::Read => library.sort_by_key(|b| b.read),
         SortBy::Title => library.sort_by(|b1, b2| b1.title.cmp(&b2.title)),
         SortBy::Author => library.sort_by(|b1, b2| b1.author.cmp(&b2.author)),
         SortBy::Pages => library.sort_by_key(|b| b.pages),
@@ -163,8 +177,8 @@ fn library_to_string(library: &Vec<Book>) -> String {
     let col_lens = get_max_column_sizes(&library);
 
     // Create and add header line
-    let col_text = [&"DATE".to_string(), &"TITLE".to_string(), &"AUTHOR".to_string(),
-        &"PG".to_string(), &"SERIES".to_string(), &"PATH".to_string()];
+    let col_text = [&"DATE".to_string(), &"R".to_string(), &"TITLE".to_string(),
+        &"AUTHOR".to_string(), &"PG".to_string(), &"SERIES".to_string(), &"PATH".to_string()];
     lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
 
     // Create and add a tabulated string from each book in the library
@@ -176,9 +190,9 @@ fn library_to_string(library: &Vec<Book>) -> String {
 }
 
 /// Returns a tabulated string slice from provided Book struct.
-fn book_to_line(book: &Book, col_lens: [usize; 6]) -> String {
-    let col_text = [&book.timestamp.to_string(), &book.title, &book.author,
-        &book.pages.to_string(), &book.series.to_string(), &book.path];
+fn book_to_line(book: &Book, col_lens: [usize; 7]) -> String {
+    let col_text = [&book.timestamp.to_string(), &book.read_symbol(), &book.title,
+        &book.author, &book.pages.to_string(), &book.series.to_string(), &book.path];
     tabulate_string(&col_text, &col_lens)
 }
 
@@ -205,9 +219,10 @@ fn adjust_string_len(field: &String, max_len: usize) -> String {
 }
 
 /// Return maximum width of each column from the library data structure.
-fn get_max_column_sizes(library: &Vec<Book>) -> [usize; 6] {
+fn get_max_column_sizes(library: &Vec<Book>) -> [usize; 7] {
     [
-        6,
+        6, // timestamp has 6 digits
+        2, // read symbol can have 2 characters
         library.iter().map(|b| b.title.len()).max().unwrap(),
         library.iter().map(|b| b.author.len()).max().unwrap(),
         library.iter().map(|b| b.pages.to_string().len()).max().unwrap(),

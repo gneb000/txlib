@@ -65,6 +65,7 @@ fn backup_library_db(lib_db_file: &str) {
 fn parse_sorting_option(sort_str: String) -> SortBy {
     match sort_str.to_lowercase().as_str() {
         "d" | "date" => SortBy::Date,
+        "r" | "read" => SortBy::Read,
         "t" | "title" => SortBy::Title,
         "a" | "author" => SortBy::Author,
         "p" | "pages" => SortBy::Pages,
