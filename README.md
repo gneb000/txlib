@@ -4,6 +4,7 @@ Text based epub library manager.
 
 The program scans the provided root directory for epub files and creates a table with the following fields (read from the epub metadata):
 + Date (timestamp of date when book was added, YYMMDD format)
++ Read
 + Title
 + Author
 + Pages (page count based on 2000 chars per page)
@@ -28,7 +29,7 @@ Everytime the program runs, removed epub files are deleted from the generated ta
 $ txlib [OPTIONS]
 
 Options:
-    -s, --sort <SORT>  sort by: date, title, author, pages or series [default: date]
+    -s, --sort <SORT>  sort by: date, title, author, read, pages or series [default: date]
     -r, --reverse      reverse sorting order
     -n, --no-save      print output without saving to DB
     -o, --open-db      open DB file (does not run the rest of the app)

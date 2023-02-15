@@ -120,13 +120,11 @@ fn create_book_from_epub(epub_path: &str) -> Book {
 
 /// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
 fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
-    let mut spine = epub_doc.spine.clone();
-    let mut char_count = 0;
-    for res_id in spine.iter_mut() {
-        char_count += (*epub_doc).get_resource_str(res_id).unwrap_or_default().0.chars()
+    let char_count = epub_doc.spine.clone().iter()
+        .fold(0_usize, |acc, r| acc + epub_doc.get_resource_str(r)
+            .unwrap().0.chars()
             .filter(|s| *s!='\n')
-            .count();
-    }
+            .count());
     (char_count / CHARS_PER_PAGE) as u32
 }
 
@@ -145,12 +143,12 @@ fn create_timestamp() -> u32{
 /// Sorts library based on provided Book field.
 fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
     match sort_by {
-        SortBy::Date => library.sort_by_key(|b| b.timestamp),
-        SortBy::Read => library.sort_by_key(|b| b.read),
-        SortBy::Title => library.sort_by(|b1, b2| b1.title.cmp(&b2.title)),
-        SortBy::Author => library.sort_by(|b1, b2| b1.author.cmp(&b2.author)),
-        SortBy::Pages => library.sort_by_key(|b| b.pages),
-        SortBy::Series => library.sort_by(|b1, b2| b1.series.cmp(&b2.series))
+        SortBy::Date => library.sort_unstable_by_key(|b| b.timestamp),
+        SortBy::Read => library.sort_unstable_by_key(|b| b.read),
+        SortBy::Title => library.sort_unstable_by(|b1, b2| b1.title.cmp(&b2.title)),
+        SortBy::Author => library.sort_unstable_by(|b1, b2| b1.author.cmp(&b2.author)),
+        SortBy::Pages => library.sort_unstable_by_key(|b| b.pages),
+        SortBy::Series => library.sort_unstable_by(|b1, b2| b1.series.cmp(&b2.series))
     }
     if reverse {
         library.reverse();
@@ -199,9 +197,10 @@ fn book_to_line(book: &Book, col_lens: [usize; 7]) -> String {
 /// Iterates through each book field and returns its contents as a tabulated string slice.
 fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
     let mut tab_str = String::new();
-    col_text.iter().enumerate()
-        .map(|i| tab_str.push_str(adjust_string_len(&col_text[i.0], col_lens[i.0]).as_str()))
-        .count();
+    col_text.iter()
+        .zip(col_lens)
+        .map(|(t, l)| tab_str.push_str(adjust_string_len(t, *l).as_str()))
+        .for_each(drop);
     tab_str.push('\n');
     tab_str
 }
