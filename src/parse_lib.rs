@@ -1,9 +1,9 @@
-use std::fs::File;
-use std::path::Path;
-use std::io::{BufRead, BufReader, Write};
 use chrono::{Datelike, Utc};
 use epub::doc::EpubDoc;
 use glob::glob;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
 
 const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
 const READ_SYMBOL: &str = "*";      // Symbol to mark book as read
@@ -16,14 +16,14 @@ pub struct Book {
     author: String,
     series: String,
     pages: u32,
-    path: String
+    path: String,
 }
 
 impl Book {
     fn read_symbol(&self) -> String {
         match self.read {
             true  => READ_SYMBOL.to_string(),
-            false => String::from(" ")
+            false => String::from(" "),
         }
     }
 }
@@ -34,7 +34,7 @@ pub enum SortBy {
     Title,
     Author,
     Pages,
-    Series
+    Series,
 }
 
 // LOAD LIBRARY //
@@ -59,31 +59,26 @@ pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: SortBy, reverse
 }
 
 /// Returns a vector with the paths to all epub files in provided root path.
-fn find_epub_files(root_path: &str) -> Vec<String>{
+fn find_epub_files(root_path: &str) -> Vec<String> {
     let glob_pattern = root_path.to_owned() + "/**/*.epub";
-    glob(&glob_pattern).unwrap()
+    glob(&glob_pattern)
+        .unwrap()
         .map(|x| x.unwrap().display().to_string())
         .collect()
 }
 
 /// Reads tabulated input and returns vector with respective Book data structure.
-fn read_library_db(lib_file_path: &str) -> Vec<Book>{
-    let mut library_db = Vec::new();
-    if Path::new(lib_file_path).exists() {
-        // Read lines from text file containing the library data
-        let file = File::open(lib_file_path).unwrap();
-        let reader = BufReader::new(file);
-        let mut lines = reader.lines();
-
-        lines.next(); // Skip header line.
-
-        // Load library based on delimiter, ignoring empty or commented lines
-        lines
-            .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
-            .map(|l| library_db.push(line_to_book(l.unwrap())))
-            .count();
+fn read_library_db(lib_file_path: &str) -> Vec<Book> {
+    if !Path::new(lib_file_path).exists() {
+        return Vec::new();
     }
-    library_db
+    let file = File::open(lib_file_path).unwrap();
+    BufReader::new(file)
+        .lines()
+        .skip(1) // Skip header line
+        .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
+        .map(|l| line_to_book(l.unwrap()))
+        .collect()
 }
 
 /// Returns a Book struct from the line string and based on provided column lengths.
@@ -100,7 +95,7 @@ fn line_to_book(line: String) -> Book {
         author: fields[3].to_string(),
         pages: fields[4].parse().unwrap(),
         series: fields[5].to_string(),
-        path: fields[6].to_string()
+        path: fields[6].to_string(),
     }
 }
 
@@ -114,7 +109,7 @@ fn create_book_from_epub(epub_path: &str) -> Book {
         author: epub_doc.mdata("creator").unwrap_or("Unknown author".to_string()),
         series: String::new(),
         pages: count_epub_pages(&mut epub_doc),
-        path: epub_path.to_string()
+        path: epub_path.to_string(),
     }
 }
 
@@ -129,14 +124,9 @@ fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
 }
 
 /// Returns today as a timestamp with YYMMDD format.
-fn create_timestamp() -> u32{
+fn create_timestamp() -> u32 {
     let now = Utc::now();
-    let date_str = format!(
-        "{:02}{:02}{:02}",
-        now.year(),
-        now.month(),
-        now.day(),
-    );
+    let date_str = format!("{:02}{:02}{:02}", now.year(), now.month(), now.day());
     (&date_str[2..]).parse().unwrap()
 }
 
@@ -148,13 +138,12 @@ fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
         SortBy::Title => library.sort_unstable_by(|b1, b2| b1.title.cmp(&b2.title)),
         SortBy::Author => library.sort_unstable_by(|b1, b2| b1.author.cmp(&b2.author)),
         SortBy::Pages => library.sort_unstable_by_key(|b| b.pages),
-        SortBy::Series => library.sort_unstable_by(|b1, b2| b1.series.cmp(&b2.series))
+        SortBy::Series => library.sort_unstable_by(|b1, b2| b1.series.cmp(&b2.series)),
     }
     if reverse {
         library.reverse();
     }
 }
-
 
 // WRITE LIBRARY //
 
@@ -175,38 +164,57 @@ fn library_to_string(library: &Vec<Book>) -> String {
     let col_lens = get_max_column_sizes(&library);
 
     // Create and add header line
-    let col_text = [&"DATE".to_string(), &"R".to_string(), &"TITLE".to_string(),
-        &"AUTHOR".to_string(), &"PG".to_string(), &"SERIES".to_string(), &"PATH".to_string()];
+    let col_text = [
+        &"DATE".to_string(),
+        &"R".to_string(),
+        &"TITLE".to_string(),
+        &"AUTHOR".to_string(),
+        &"PG".to_string(),
+        &"SERIES".to_string(),
+        &"PATH".to_string(),
+    ];
     lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
 
     // Create and add a tabulated string from each book in the library
-    library.iter()
-        .map(|b| lib_str.push_str(book_to_line(b, col_lens).as_str()))
-        .count();
+    lib_str.push_str(library
+        .iter()
+        .map(|b| book_to_line(b, col_lens))
+        .collect::<Vec<String>>()
+        .join("")
+        .as_str()
+    );
 
     lib_str.trim_end().to_string()
 }
 
 /// Returns a tabulated string slice from provided Book struct.
 fn book_to_line(book: &Book, col_lens: [usize; 7]) -> String {
-    let col_text = [&book.timestamp.to_string(), &book.read_symbol(), &book.title,
-        &book.author, &book.pages.to_string(), &book.series.to_string(), &book.path];
+    let col_text = [
+        &book.timestamp.to_string(),
+        &book.read_symbol(),
+        &book.title,
+        &book.author,
+        &book.pages.to_string(),
+        &book.series.to_string(),
+        &book.path,
+    ];
     tabulate_string(&col_text, &col_lens)
 }
 
 /// Iterates through each book field and returns its contents as a tabulated string slice.
 fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
-    let mut tab_str = String::new();
-    col_text.iter()
+    let mut tab_str = col_text
+        .iter()
         .zip(col_lens)
-        .map(|(t, l)| tab_str.push_str(adjust_string_len(t, *l).as_str()))
-        .for_each(drop);
+        .map(|(t, l)| adjust_string_len(t, *l))
+        .collect::<Vec<String>>()
+        .join("");
     tab_str.push('\n');
     tab_str
 }
 
 /// Returns each book field with required spacing to tabulate the content.
-fn adjust_string_len(field: &String, max_len: usize) -> String {
+fn adjust_string_len(field: &str, max_len: usize) -> String {
     let mut adj_str = String::from(field);
     let mut width = adj_str.chars().collect::<Vec<char>>().len();
     while width < max_len {
@@ -226,6 +234,6 @@ fn get_max_column_sizes(library: &Vec<Book>) -> [usize; 7] {
         library.iter().map(|b| b.author.len()).max().unwrap(),
         library.iter().map(|b| b.pages.to_string().len()).max().unwrap(),
         library.iter().map(|b| b.series.len()).max().unwrap(),
-        library.iter().map(|b| b.path.len()).max().unwrap()
+        library.iter().map(|b| b.path.len()).max().unwrap(),
     ]
 }

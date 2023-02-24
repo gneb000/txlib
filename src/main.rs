@@ -1,8 +1,8 @@
 mod parse_lib;
 
+use clap::Parser;
 use std::fs;
 use std::path::Path;
-use clap::Parser;
 
 use crate::parse_lib::SortBy;
 
@@ -32,21 +32,21 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
     // Verify config file and load epub library path
     let epub_dir_path;
     if !config_file.exists() {
-        println!("No config file found. In the config file 'txlibrc' located in \
-            '$HOME/.config/txlib' add the path to the root directory to search for epub files.");
-        fs::write(config_file, "library_path=")
-            .expect("Unable to create config file.");
-        return (false, "".to_string())
+        println!(
+            "No config file found. In the config file 'txlibrc' located in \
+            '$HOME/.config/txlib' add the path to the root directory to search for epub files."
+        );
+        fs::write(config_file, "library_path=").expect("Unable to create config file.");
+        return (false, "".to_string());
     } else {
-        let config_content = fs::read_to_string(config_file)
-            .expect("Unable to read config file.");
+        let config_content = fs::read_to_string(config_file).expect("Unable to read config file.");
         epub_dir_path = (config_content.split("=").collect::<Vec<&str>>())[1].to_string();
     }
 
     // Verify provided epub library path
     if !Path::new(&epub_dir_path).exists() {
         println!("Provided epub library path does not exist.");
-        return (false, "".to_string())
+        return (false, "".to_string());
     }
 
     (true, epub_dir_path)
@@ -56,8 +56,7 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
 fn backup_library_db(lib_db_file: &str) {
     if Path::new(&lib_db_file).exists() {
         let bak_dg = lib_db_file.to_owned() + ".bak";
-        fs::copy(lib_db_file, Path::new(bak_dg.as_str()))
-            .expect("Unable to create DB backup.");
+        fs::copy(lib_db_file, Path::new(bak_dg.as_str())).expect("Unable to create DB backup.");
     }
 }
 
@@ -70,7 +69,7 @@ fn parse_sorting_option(sort_str: String) -> SortBy {
         "a" | "author" => SortBy::Author,
         "p" | "pages" => SortBy::Pages,
         "s" | "series" => SortBy::Series,
-        _ => SortBy::Date
+        _ => SortBy::Date,
     }
 }
 
@@ -109,7 +108,11 @@ fn main() {
     backup_library_db(lib_db_file_str);
 
     // Load library and write it to stdout and/or DB file
-    let lib = parse_lib::load_library(lib_db_file_str,
-                                      epub_dir_path.as_str(), sort_by, args.reverse);
+    let lib = parse_lib::load_library(
+        lib_db_file_str,
+        epub_dir_path.as_str(),
+        sort_by,
+        args.reverse,
+    );
     parse_lib::write_library(&lib, lib_db_file_str, args.no_save);
 }
