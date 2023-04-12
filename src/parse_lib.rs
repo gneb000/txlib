@@ -76,7 +76,7 @@ fn read_library_db(lib_file_path: &str) -> Vec<Book> {
     BufReader::new(file)
         .lines()
         .skip(1) // Skip header line
-        .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with("#")))
+        .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with('#')))
         .map(|l| line_to_book(l.unwrap()))
         .collect()
 }
@@ -89,11 +89,11 @@ fn line_to_book(line: String) -> Book {
         .collect();
 
     Book {
-        timestamp: fields[0].parse().unwrap(),
+        timestamp: fields[0].parse().unwrap_or(999999),
         read: !fields[1].trim().is_empty(),
         title: fields[2].to_string(),
         author: fields[3].to_string(),
-        pages: fields[4].parse().unwrap(),
+        pages: fields[4].parse().unwrap_or(0),
         series: fields[5].to_string(),
         path: fields[6].to_string(),
     }
@@ -127,11 +127,11 @@ fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
 fn create_timestamp() -> u32 {
     let now = Utc::now();
     let date_str = format!("{:02}{:02}{:02}", now.year(), now.month(), now.day());
-    (&date_str[2..]).parse().unwrap()
+    (date_str[2..]).parse().unwrap_or(999999)
 }
 
 /// Sorts library based on provided Book field.
-fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
+fn sort_library(library: &mut [Book], sort_by: SortBy, reverse: bool) {
     match sort_by {
         SortBy::Date => library.sort_unstable_by_key(|b| b.timestamp),
         SortBy::Read => library.sort_unstable_by_key(|b| b.read),
@@ -148,7 +148,7 @@ fn sort_library(library: &mut Vec<Book>, sort_by: SortBy, reverse: bool) {
 // WRITE LIBRARY //
 
 /// Write library data structure to stdout and to file with appropriate formatting.
-pub fn write_library(library: &Vec<Book>, output_path: &str, no_save: bool) {
+pub fn write_library(library: &[Book], output_path: &str, no_save: bool) {
     let lib_str = library_to_string(library);
     if !no_save {
         let mut output_file = File::create(output_path).unwrap();
@@ -158,10 +158,10 @@ pub fn write_library(library: &Vec<Book>, output_path: &str, no_save: bool) {
 }
 
 /// Returns a tabulated string from library data structure.
-fn library_to_string(library: &Vec<Book>) -> String {
+fn library_to_string(library: &[Book]) -> String {
     let mut lib_str = String::new();
 
-    let col_lens = get_max_column_sizes(&library);
+    let col_lens = get_max_column_sizes(library);
 
     // Create and add header line
     let col_text = [
@@ -226,7 +226,7 @@ fn adjust_string_len(field: &str, max_len: usize) -> String {
 }
 
 /// Return maximum width of each column from the library data structure.
-fn get_max_column_sizes(library: &Vec<Book>) -> [usize; 7] {
+fn get_max_column_sizes(library: &[Book]) -> [usize; 7] {
     [
         6, // timestamp has 6 digits
         2, // read symbol can have 2 characters

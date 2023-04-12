@@ -30,7 +30,6 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
     fs::create_dir_all(config_path).expect("Unable to access config directory.");
 
     // Verify config file and load epub library path
-    let epub_dir_path;
     if !config_file.exists() {
         println!(
             "No config file found. In the config file 'txlibrc' located in \
@@ -38,10 +37,10 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
         );
         fs::write(config_file, "library_path=").expect("Unable to create config file.");
         return (false, "".to_string());
-    } else {
-        let config_content = fs::read_to_string(config_file).expect("Unable to read config file.");
-        epub_dir_path = (config_content.split("=").collect::<Vec<&str>>())[1].to_string();
     }
+
+    let config_content = fs::read_to_string(config_file).expect("Unable to read config file.");
+    let epub_dir_path = (config_content.split('=').collect::<Vec<&str>>())[1].to_string();
 
     // Verify provided epub library path
     if !Path::new(&epub_dir_path).exists() {
