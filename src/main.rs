@@ -24,7 +24,7 @@ struct Args {
     open_db: bool,
 }
 
-/// If config file was verified, returns (true, epub_dir_path). Else, returns (false, "").
+/// If config file was verified, returns (true, `epub_dir_path`). Else, returns (false, "").
 fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, String) {
     // Verify config directory path
     fs::create_dir_all(config_path).expect("Unable to access config directory.");
@@ -36,7 +36,7 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
             '$HOME/.config/txlib' add the path to the root directory to search for epub files."
         );
         fs::write(config_file, "library_path=").expect("Unable to create config file.");
-        return (false, "".to_string());
+        return (false, String::new());
     }
 
     let config_content = fs::read_to_string(config_file).expect("Unable to read config file.");
@@ -45,7 +45,7 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
     // Verify provided epub library path
     if !Path::new(&epub_dir_path).exists() {
         println!("Provided epub library path does not exist.");
-        return (false, "".to_string());
+        return (false, String::new());
     }
 
     (true, epub_dir_path)
@@ -54,15 +54,14 @@ fn startup_verifications(config_path: &Path, config_file: &Path) -> (bool, Strin
 /// Makes a backup of the epub library DB before startup.
 fn backup_library_db(lib_db_file: &str) {
     if Path::new(&lib_db_file).exists() {
-        let bak_dg = lib_db_file.to_owned() + ".bak";
-        fs::copy(lib_db_file, Path::new(bak_dg.as_str())).expect("Unable to create DB backup.");
+        let bak_db = lib_db_file.to_owned() + ".bak";
+        fs::copy(lib_db_file, Path::new(bak_db.as_str())).expect("Unable to create DB backup.");
     }
 }
 
-/// Returns SortBy enum after parsing string sorting option.
-fn parse_sorting_option(sort_str: String) -> SortBy {
+/// Returns `SortBy` enum after parsing string sorting option.
+fn parse_sorting_option(sort_str: &str) -> SortBy {
     match sort_str.to_lowercase().as_str() {
-        "d" | "date" => SortBy::Date,
         "r" | "read" => SortBy::Read,
         "t" | "title" => SortBy::Title,
         "a" | "author" => SortBy::Author,
@@ -82,7 +81,7 @@ fn open_db_file(lib_db_file: &Path) {
 fn main() {
     // Parse CLI input
     let args = Args::parse();
-    let sort_by = parse_sorting_option(args.sort);
+    let sort_by = parse_sorting_option(&args.sort);
 
     // Config file paths
     let config_path = dirs::config_dir().unwrap().join("txlib");
@@ -110,7 +109,7 @@ fn main() {
     let lib = parse_lib::load_library(
         lib_db_file_str,
         epub_dir_path.as_str(),
-        sort_by,
+        &sort_by,
         args.reverse,
     );
     parse_lib::write_library(&lib, lib_db_file_str, args.no_save);

@@ -15,15 +15,16 @@ pub struct Book {
     title: String,
     author: String,
     series: String,
-    pages: u32,
+    pages: usize,
     path: String,
 }
 
 impl Book {
     fn read_symbol(&self) -> String {
-        match self.read {
-            true  => READ_SYMBOL.to_string(),
-            false => String::from(" "),
+        if self.read {
+            READ_SYMBOL.to_string()
+        } else {
+            String::from(" ")
         }
     }
 }
@@ -40,12 +41,12 @@ pub enum SortBy {
 // LOAD LIBRARY //
 
 /// Returns library data structure after joining saved DB and epub file list.
-pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: SortBy, reverse: bool) -> Vec<Book> {
+pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: &SortBy, reverse: bool) -> Vec<Book> {
     let epub_list = find_epub_files(epub_path);
     let mut library = read_library_db(lib_db_path);
 
     // Check whether new epub files are available and add them to the library accordingly
-    for epub_path in epub_list.iter() {
+    for epub_path in &epub_list {
         if !library.iter().any(|b| &b.path == epub_path) {
             library.push(create_book_from_epub(epub_path));
         }
@@ -77,19 +78,19 @@ fn read_library_db(lib_file_path: &str) -> Vec<Book> {
         .lines()
         .skip(1) // Skip header line
         .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with('#')))
-        .map(|l| line_to_book(l.unwrap()))
+        .map(|l| line_to_book(&l.unwrap()))
         .collect()
 }
 
 /// Returns a Book struct from the line string and based on provided column lengths.
-fn line_to_book(line: String) -> Book {
+fn line_to_book(line: &str) -> Book {
     let fields: Vec<&str> = line
         .split(DELIM)
-        .map(|s| s.trim())
+        .map(str::trim)
         .collect();
 
     Book {
-        timestamp: fields[0].parse().unwrap_or(999999),
+        timestamp: fields[0].parse().unwrap_or(999_999),
         read: !fields[1].trim().is_empty(),
         title: fields[2].to_string(),
         author: fields[3].to_string(),
@@ -113,25 +114,25 @@ fn create_book_from_epub(epub_path: &str) -> Book {
     }
 }
 
-/// Returns page count in provided epub file based on CHARS_PER_PAGE constant.
-fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> u32 {
+/// Returns page count in provided epub file based on `CHARS_PER_PAGE` constant.
+fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> usize {
     let char_count = epub_doc.spine.clone().iter()
         .fold(0_usize, |acc, r| acc + epub_doc.get_resource_str(r)
             .unwrap().0.chars()
             .filter(|s| *s!='\n')
             .count());
-    (char_count / CHARS_PER_PAGE) as u32
+    char_count / CHARS_PER_PAGE
 }
 
 /// Returns today as a timestamp with YYMMDD format.
 fn create_timestamp() -> u32 {
     let now = Utc::now();
     let date_str = format!("{:02}{:02}{:02}", now.year(), now.month(), now.day());
-    (date_str[2..]).parse().unwrap_or(999999)
+    (date_str[2..]).parse().unwrap_or(999_999)
 }
 
 /// Sorts library based on provided Book field.
-fn sort_library(library: &mut [Book], sort_by: SortBy, reverse: bool) {
+fn sort_library(library: &mut [Book], sort_by: &SortBy, reverse: bool) {
     match sort_by {
         SortBy::Date => library.sort_unstable_by_key(|b| b.timestamp),
         SortBy::Read => library.sort_unstable_by_key(|b| b.read),
@@ -152,9 +153,9 @@ pub fn write_library(library: &[Book], output_path: &str, no_save: bool) {
     let lib_str = library_to_string(library);
     if !no_save {
         let mut output_file = File::create(output_path).unwrap();
-        write!(output_file, "{}", lib_str).expect("Unable to write library to file.");
+        write!(output_file, "{lib_str}").expect("Unable to write library to file.");
     }
-    println!("{}", lib_str);
+    println!("{lib_str}");
 }
 
 /// Returns a tabulated string from library data structure.
@@ -179,8 +180,7 @@ fn library_to_string(library: &[Book]) -> String {
     lib_str.push_str(library
         .iter()
         .map(|b| book_to_line(b, col_lens))
-        .collect::<Vec<String>>()
-        .join("")
+        .collect::<String>()
         .as_str()
     );
 
@@ -207,8 +207,7 @@ fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
         .iter()
         .zip(col_lens)
         .map(|(t, l)| adjust_string_len(t, *l))
-        .collect::<Vec<String>>()
-        .join("");
+        .collect::<String>();
     tab_str.push('\n');
     tab_str
 }
