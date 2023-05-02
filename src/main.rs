@@ -93,7 +93,7 @@ fn run_txlib() -> Result<(), &'static str> {
     let sort_by = parse_sorting_option(&args.sort);
 
     // Config file paths
-    let config_path = dirs::config_dir().unwrap().join("txlib_bak");
+    let config_path = dirs::config_dir().unwrap().join("txlib");
     let config_file = config_path.join("txlibrc");
     let lib_db_file = config_path.join("epub_db.txt");
 

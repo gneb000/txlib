@@ -167,16 +167,15 @@ fn sort_library(library: &mut [Book], sort_by: &SortBy, reverse: bool) {
 /// Write library data structure to stdout and/or to file with appropriate formatting.
 pub fn write_library(library: &[Book], output_path: &Path, no_save: bool) -> Result<(), &'static str> {
     let lib_str = library_to_string(library);
-    if no_save {
-        println!("{lib_str}");
-        return Ok(());
+    if !no_save {
+        let Ok(mut output_file) = File::create(output_path) else {
+            return Err("error: unable to open library DB")
+        };
+        if write!(output_file, "{lib_str}").is_err() {
+            return Err("error: unable to write library to DB");
+        }
     }
-    let Ok(mut output_file) = File::create(output_path) else {
-        return Err("error: unable to open library DB")
-    };
-    if write!(output_file, "{lib_str}").is_err() {
-        return Err("error: unable to write library to DB");
-    }
+    println!("{lib_str}");
     Ok(())
 }
 
