@@ -41,9 +41,8 @@ fn startup_verifications(config_path: PathBuf, config_file: PathBuf) -> Result<P
         );
     }
 
-    let config_content = match fs::read_to_string(config_file) {
-        Ok(content) => content,
-        Err(_) => return Err("error: unable to read config file"),
+    let Ok(config_content) = fs::read_to_string(config_file) else {
+        return Err("error: unable to read config file")
     };
 
     let epub_dir_path = PathBuf::from(config_content.split('=').last().unwrap());

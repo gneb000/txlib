@@ -48,12 +48,11 @@ pub fn load_library(lib_db_path: &Path, epub_path: &str, sort_by: &SortBy, rever
     // Check whether new epub files are available and add them to the library accordingly
     for epub_path in &epub_list {
         if !library.iter().any(|b| &b.path == epub_path) {
-            match create_book_from_epub(epub_path) {
-                Some(book) => library.push(book),
-                None => {
-                    println!("warning: unable to load \"{}\"", epub_path);
-                    continue;
-                }
+            if let Some(book) = create_book_from_epub(epub_path) {
+                library.push(book);
+            } else {
+                println!("warning: unable to load \"{epub_path}\"");
+                continue;
             }
         }
     }
@@ -70,7 +69,7 @@ fn find_epub_files(root_path: &str) -> Vec<String> {
     let glob_pattern = root_path.to_owned() + "/**/*.epub";
     glob(&glob_pattern)
         .unwrap()
-        .filter(|p| p.is_ok())
+        .filter(Result::is_ok)
         .map(|p| p.unwrap().display().to_string())
         .collect()
 }
@@ -80,9 +79,8 @@ fn read_library_db(lib_file_path: &Path) -> Result<Vec<Book>, &'static str> {
     if !lib_file_path.exists() {
         return Ok(Vec::new());
     }
-    let file = match File::open(lib_file_path) {
-        Ok(f) => f,
-        Err(_) => return Err("error: unable to read library DB"),
+    let Ok(file) = File::open(lib_file_path) else {
+        return Err("error: unable to read library DB")
     };
     let library = BufReader::new(file)
         .lines()
@@ -113,9 +111,8 @@ fn line_to_book(line: &str) -> Book {
 
 /// Returns Book data structure from data of the provided epub file path.
 fn create_book_from_epub(epub_path: &str) -> Option<Book> {
-    let mut epub_doc = match EpubDoc::new(epub_path) {
-        Ok(doc) => doc,
-        Err(_) => return None,
+    let Ok(mut epub_doc) = EpubDoc::new(epub_path) else {
+        return None
     };
     let book = Book {
         timestamp: create_timestamp(),
@@ -174,9 +171,8 @@ pub fn write_library(library: &[Book], output_path: &Path, no_save: bool) -> Res
         println!("{lib_str}");
         return Ok(());
     }
-    let mut output_file = match File::create(output_path) {
-        Ok(file) => file,
-        Err(_) => return Err("error: unable to open library DB"),
+    let Ok(mut output_file) = File::create(output_path) else {
+        return Err("error: unable to open library DB")
     };
     if write!(output_file, "{lib_str}").is_err() {
         return Err("error: unable to write library to DB");
