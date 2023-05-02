@@ -80,7 +80,7 @@ fn open_db_file(lib_db_file: &Path) -> Result<(), &'static str> {
     if !lib_db_file.exists() {
         return Err("error: unable to locate DB file");
     }
-    if open::that(lib_db_file).is_err() {
+    if open::with_command(lib_db_file, "xdg-open").status().is_err() {
         return Err("error: unable to open DB file");
     }
     Ok(())
