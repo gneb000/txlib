@@ -41,14 +41,20 @@ pub enum SortBy {
 // LOAD LIBRARY //
 
 /// Returns library data structure after joining saved DB and epub file list.
-pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: &SortBy, reverse: bool) -> Vec<Book> {
+pub fn load_library(lib_db_path: &Path, epub_path: &str, sort_by: &SortBy, reverse: bool) -> Result<Vec<Book>, &'static str> {
     let epub_list = find_epub_files(epub_path);
-    let mut library = read_library_db(lib_db_path);
+    let mut library = read_library_db(lib_db_path)?;
 
     // Check whether new epub files are available and add them to the library accordingly
     for epub_path in &epub_list {
         if !library.iter().any(|b| &b.path == epub_path) {
-            library.push(create_book_from_epub(epub_path));
+            match create_book_from_epub(epub_path) {
+                Some(book) => library.push(book),
+                None => {
+                    println!("warning: unable to load \"{}\"", epub_path);
+                    continue;
+                }
+            }
         }
     }
 
@@ -56,7 +62,7 @@ pub fn load_library(lib_db_path: &str, epub_path: &str, sort_by: &SortBy, revers
     library.retain(|e| epub_list.contains(&e.path));
 
     sort_library(&mut library, sort_by, reverse);
-    library
+    Ok(library)
 }
 
 /// Returns a vector with the paths to all epub files in provided root path.
@@ -64,22 +70,27 @@ fn find_epub_files(root_path: &str) -> Vec<String> {
     let glob_pattern = root_path.to_owned() + "/**/*.epub";
     glob(&glob_pattern)
         .unwrap()
-        .map(|x| x.unwrap().display().to_string())
+        .filter(|p| p.is_ok())
+        .map(|p| p.unwrap().display().to_string())
         .collect()
 }
 
 /// Reads tabulated input and returns vector with respective Book data structure.
-fn read_library_db(lib_file_path: &str) -> Vec<Book> {
-    if !Path::new(lib_file_path).exists() {
-        return Vec::new();
+fn read_library_db(lib_file_path: &Path) -> Result<Vec<Book>, &'static str> {
+    if !lib_file_path.exists() {
+        return Ok(Vec::new());
     }
-    let file = File::open(lib_file_path).unwrap();
-    BufReader::new(file)
+    let file = match File::open(lib_file_path) {
+        Ok(f) => f,
+        Err(_) => return Err("error: unable to read library DB"),
+    };
+    let library = BufReader::new(file)
         .lines()
         .skip(1) // Skip header line
-        .filter(|l| !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with('#')))
+        .filter(|l| l.is_ok() && !(l.as_ref().unwrap().is_empty() || l.as_ref().unwrap().starts_with('#')))
         .map(|l| line_to_book(&l.unwrap()))
-        .collect()
+        .collect();
+    Ok(library)
 }
 
 /// Returns a Book struct from the line string and based on provided column lengths.
@@ -101,26 +112,34 @@ fn line_to_book(line: &str) -> Book {
 }
 
 /// Returns Book data structure from data of the provided epub file path.
-fn create_book_from_epub(epub_path: &str) -> Book {
-    let mut epub_doc = EpubDoc::new(epub_path).unwrap();
-    Book {
+fn create_book_from_epub(epub_path: &str) -> Option<Book> {
+    let mut epub_doc = match EpubDoc::new(epub_path) {
+        Ok(doc) => doc,
+        Err(_) => return None,
+    };
+    let book = Book {
         timestamp: create_timestamp(),
         read: false,
-        title: epub_doc.mdata("title").unwrap_or("Unknown title".to_string()),
-        author: epub_doc.mdata("creator").unwrap_or("Unknown author".to_string()),
+        title: epub_doc.mdata("title").unwrap_or(String::from("Unknown title")),
+        author: epub_doc.mdata("creator").unwrap_or(String::from("Unknown author")),
         series: String::new(),
         pages: count_epub_pages(&mut epub_doc),
         path: epub_path.to_string(),
-    }
+    };
+    Some(book)
 }
 
 /// Returns page count in provided epub file based on `CHARS_PER_PAGE` constant.
 fn count_epub_pages(epub_doc: &mut EpubDoc<BufReader<File>>) -> usize {
-    let char_count = epub_doc.spine.clone().iter()
-        .fold(0_usize, |acc, r| acc + epub_doc.get_resource_str(r)
-            .unwrap().0.chars()
-            .filter(|s| *s!='\n')
-            .count());
+    let char_count = epub_doc.spine.clone().iter().fold(0_usize, |acc, r| {
+        acc + epub_doc
+            .get_resource_str(r)
+            .unwrap_or((String::new(), String::new()))
+            .0
+            .chars()
+            .filter(|s| *s != '\n')
+            .count()
+    });
     char_count / CHARS_PER_PAGE
 }
 
@@ -148,14 +167,21 @@ fn sort_library(library: &mut [Book], sort_by: &SortBy, reverse: bool) {
 
 // WRITE LIBRARY //
 
-/// Write library data structure to stdout and to file with appropriate formatting.
-pub fn write_library(library: &[Book], output_path: &str, no_save: bool) {
+/// Write library data structure to stdout and/or to file with appropriate formatting.
+pub fn write_library(library: &[Book], output_path: &Path, no_save: bool) -> Result<(), &'static str> {
     let lib_str = library_to_string(library);
-    if !no_save {
-        let mut output_file = File::create(output_path).unwrap();
-        write!(output_file, "{lib_str}").expect("Unable to write library to file.");
+    if no_save {
+        println!("{lib_str}");
+        return Ok(());
     }
-    println!("{lib_str}");
+    let mut output_file = match File::create(output_path) {
+        Ok(file) => file,
+        Err(_) => return Err("error: unable to open library DB"),
+    };
+    if write!(output_file, "{lib_str}").is_err() {
+        return Err("error: unable to write library to DB");
+    }
+    Ok(())
 }
 
 /// Returns a tabulated string from library data structure.
@@ -178,10 +204,10 @@ fn library_to_string(library: &[Book]) -> String {
 
     // Create and add a tabulated string from each book in the library
     lib_str.push_str(library
-        .iter()
-        .map(|b| book_to_line(b, col_lens))
-        .collect::<String>()
-        .as_str()
+            .iter()
+            .map(|b| book_to_line(b, col_lens))
+            .collect::<String>()
+            .as_str()
     );
 
     lib_str.trim_end().to_string()
@@ -229,10 +255,10 @@ fn get_max_column_sizes(library: &[Book]) -> [usize; 7] {
     [
         6, // timestamp has 6 digits
         2, // read symbol can have 2 characters
-        library.iter().map(|b| b.title.len()).max().unwrap(),
-        library.iter().map(|b| b.author.len()).max().unwrap(),
-        library.iter().map(|b| b.pages.to_string().len()).max().unwrap(),
-        library.iter().map(|b| b.series.len()).max().unwrap(),
-        library.iter().map(|b| b.path.len()).max().unwrap(),
+        library.iter().map(|b| b.title.len()).max().unwrap_or(10),
+        library.iter().map(|b| b.author.len()).max().unwrap_or(10),
+        library.iter().map(|b| b.pages.to_string().len()).max().unwrap_or(4),
+        library.iter().map(|b| b.series.len()).max().unwrap_or(10),
+        library.iter().map(|b| b.path.len()).max().unwrap_or(20),
     ]
 }
