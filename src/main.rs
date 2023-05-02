@@ -86,8 +86,8 @@ fn open_db_file(lib_db_file: &Path) -> Result<(), &'static str> {
     Ok(())
 }
 
-/// Starts the program logic.
-fn start_txlib() -> Result<(), &'static str> {
+/// Runs the program logic.
+fn run_txlib() -> Result<(), &'static str> {
     // Parse CLI input
     let args = Args::parse();
     let sort_by = parse_sorting_option(&args.sort);
@@ -115,11 +115,8 @@ fn start_txlib() -> Result<(), &'static str> {
 }
 
 fn main() {
-    match start_txlib() {
-        Ok(_) => {},
-        Err(error_msg) => {
-            println!("{error_msg}");
-            exit(1);
-        },
-    };
+    if let Err(error_msg) = run_txlib() {
+        println!("{error_msg}");
+        exit(1);
+    }
 }
