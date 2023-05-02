@@ -9,7 +9,7 @@ use crate::parse_lib::SortBy;
 
 /// txlib: text based epub library management
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(version, about, long_about = None)]
 struct Args {
     /// sort by: date, title, author, pages or series
     #[arg(short, long, default_value = "date")]
@@ -116,7 +116,7 @@ fn run_txlib() -> Result<(), &'static str> {
 
 fn main() {
     if let Err(error_msg) = run_txlib() {
-        println!("{error_msg}");
+        println!("txlib: {error_msg}");
         exit(1);
     }
 }
