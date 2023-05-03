@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
-const DELIM: &str = "  /";          // Column delimiter, double space to differentiate from path slashes
+const DELIM: &str = "  /";          // Column delimiter, double space is to differentiate from path slashes
 const READ_SYMBOL: &str = "*";      // Symbol to mark book as read
 const CHARS_PER_PAGE: usize = 2000; // Chars per page for counting pages
 
@@ -187,13 +187,13 @@ fn library_to_string(library: &[Book]) -> String {
 
     // Create and add header line
     let col_text = [
-        &"DATE".to_string(),
-        &"R".to_string(),
-        &"TITLE".to_string(),
-        &"AUTHOR".to_string(),
-        &"PG".to_string(),
-        &"SERIES".to_string(),
-        &"PATH".to_string(),
+        String::from("DATE"),
+        String::from("R"),
+        String::from("TITLE"),
+        String::from("AUTHOR"),
+        String::from("PG"),
+        String::from("SERIES"),
+        String::from("PATH")
     ];
     lib_str.push_str(tabulate_string(&col_text, &col_lens).as_str());
 
@@ -208,22 +208,22 @@ fn library_to_string(library: &[Book]) -> String {
     lib_str.trim_end().to_string()
 }
 
-/// Returns a tabulated string slice from provided Book struct.
+/// Returns a tabulated string from provided Book struct.
 fn book_to_line(book: &Book, col_lens: [usize; 7]) -> String {
     let col_text = [
-        &book.timestamp.to_string(),
-        &book.read_symbol(),
-        &book.title,
-        &book.author,
-        &book.pages.to_string(),
-        &book.series.to_string(),
-        &book.path,
+        book.timestamp.to_string(),
+        book.read_symbol(),
+        book.title.clone(),
+        book.author.clone(),
+        book.pages.to_string(),
+        book.series.clone(),
+        book.path.clone(),
     ];
     tabulate_string(&col_text, &col_lens)
 }
 
-/// Iterates through each book field and returns its contents as a tabulated string slice.
-fn tabulate_string(col_text: &[&String], col_lens: &[usize]) -> String {
+/// Iterates through each book field and returns its contents as a tabulated string.
+fn tabulate_string(col_text: &[String], col_lens: &[usize]) -> String {
     let mut tab_str = col_text
         .iter()
         .zip(col_lens)
