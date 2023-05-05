@@ -51,7 +51,7 @@ pub fn load_library(lib_db_path: &Path, epub_path: &str, sort_by: &SortBy, rever
             if let Some(book) = create_book_from_epub(epub_path) {
                 library.push(book);
             } else {
-                println!("warning: unable to load \"{epub_path}\"");
+                eprintln!("warning: unable to load \"{epub_path}\"");
                 continue;
             }
         }

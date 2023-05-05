@@ -116,7 +116,7 @@ fn run_txlib() -> Result<(), &'static str> {
 
 fn main() {
     if let Err(error_msg) = run_txlib() {
-        println!("txlib: {error_msg}");
+        eprintln!("txlib: {error_msg}");
         exit(1);
     }
 }
